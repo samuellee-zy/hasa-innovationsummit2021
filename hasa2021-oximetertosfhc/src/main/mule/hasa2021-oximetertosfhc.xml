@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="3ffc6008-3935-4c3e-aea6-da45088241bf" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="e32e2f01-c87b-4f59-b805-c939cd181e02" >
+		<salesforce:basic-connection username="hlsdemo@demo-hls2021.demo" password="Demo1234" />
+	</salesforce:sfdc-config>
+	<flow name="hasa2021-oximetertosfhcFlow" doc:id="85b2b217-1e31-484f-bc56-05bbef423f36" >
+		<http:listener doc:name="/getOxiToSFHC" doc:id="e74f0f96-de57-4f82-af81-b932c065ce70" path="/getOxiToSFHC" config-ref="HTTP_Listener_config"/>
+		<ee:transform doc:name="Randomising Oximeter Results" doc:id="7f3741f8-b375-41ef-a0e5-adc1013d4df3" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+fun getRandomInt(min, max) = (random() * (max - min) + min)
+var spo2 = (getRandomInt(85,95))
+var pulseRate = (getRandomInt(100,250))
+var perfusionIndex = (getRandomInt(0.5,10))
+---
+[{
+	Patient__c: "0015j000003FmUCAA0",
+	Pulse_Rate__c: pulseRate as String {
+		format: "0.00"
+	} ++ " bpm",
+	Blood_Oxygen_Levels_spO2__c: spo2 as String {
+		format: "0.00"
+	} ++ " %",
+	Perfusion_Index__c: perfusionIndex as String {
+		format: "0.00"
+	} ++ " %",
+	Last_Updated_Oximeter_DateTime__c: now(),
+}]]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<scatter-gather doc:name="Scatter-Gather" doc:id="7c925f49-ec35-4e94-b014-392b8ed5ef4e" >
+			<route >
+				<salesforce:create doc:name="Create new Oximeter Data record" doc:id="79103b23-2d49-4345-a591-b362e2e565cf" config-ref="Salesforce_Config" type="Oximeter_Data__c"/>
+			</route>
+			<route >
+				<salesforce:create doc:name="Create new Oximeter Value record" doc:id="a1a2bc5a-d28b-4be3-a518-4d50f9ce751f" config-ref="Salesforce_Config" type="Oximeter_Value__c"/>
+			</route>
+		</scatter-gather>
+		<logger level="INFO" doc:name="payload" doc:id="500a42d2-f22e-48dd-933e-93b6182a5953" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]"/>
+	</flow>
+</mule>
