@@ -1,0 +1,41 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<types:mule xmlns:types="http://www.mulesoft.org/schema/mule/types">
+  <types:catalog>
+    <types:type name="heartrate" format="json">
+      <types:shape format="weave" example="examples/heartrate.json"><![CDATA[%dw 2.0
+
+type heartrate = {|
+  "activities-heart": Array<{|    dateTime: String,     value: {|      customHeartRateZones: Array<Any>, 
+      heartRateZones: Array<{|        caloriesOut: Number {"typeId": "double"},         max: Number {"typeId": "int"},         min: Number {"typeId": "int"},         minutes: Number {"typeId": "int"},         name: String      |}>, 
+      restingHeartRate: Number {"typeId": "int"}
+    |}
+  |}>
+|} {"example": "{\\\"activities-heart\\\":[{\\\"dateTime\\\":\\\"2021-10-19\\\",\\\"value\\\":{\\\"customHeartRateZones\\\":[],\\\"heartRateZones\\\":[{\\\"caloriesOut\\\":593.1225,\\\"max\\\":98,\\\"min\\\":30,\\\"minutes\\\":639,\\\"name\\\":\\\"Out of Range\\\"},{\\\"caloriesOut\\\":90.15462,\\\"max\\\":137,\\\"min\\\":98,\\\"minutes\\\":46,\\\"name\\\":\\\"Fat Burn\\\"},{\\\"caloriesOut\\\":96.657,\\\"max\\\":167,\\\"min\\\":137,\\\"minutes\\\":16,\\\"name\\\":\\\"Cardio\\\"},{\\\"caloriesOut\\\":0,\\\"max\\\":220,\\\"min\\\":167,\\\"minutes\\\":0,\\\"name\\\":\\\"Peak\\\"}],\\\"restingHeartRate\\\":78}}]}"}
+
+]]></types:shape>
+    </types:type>
+    <types:type name="heartrate-zone" format="json">
+      <types:shape format="weave" example="examples/zones.json"><![CDATA[%dw 2.0
+
+type heartrate_zone = {|
+  entryDate: String, 
+  caloriesOut: String, 
+  maxHr: String, 
+  minHr: String, 
+  minutesInZone: String, 
+  zoneName: String
+|} {"example": "{\\\"entryDate\\\":\\\"2021-10-19\\\",\\\"caloriesOut\\\":\\\"562.235\\\",\\\"maxHr\\\":\\\"80\\\",\\\"minHr\\\":\\\"30\\\",\\\"minutesInZone\\\":\\\"652\\\",\\\"zoneName\\\":\\\"Out of Range\\\"}"}
+
+]]></types:shape>
+    </types:type>
+  </types:catalog>
+  <types:enrichment select="#8edd7296-870a-4504-a77b-1c511f68fd4f">
+    <types:processor-declaration>
+      <types:input-event>
+        <types:message>
+          <types:payload type="heartrate"/>
+        </types:message>
+      </types:input-event>
+    </types:processor-declaration>
+  </types:enrichment>
+</types:mule>

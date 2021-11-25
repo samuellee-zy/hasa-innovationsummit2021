@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:mule-sap-concur-connector="http://www.mulesoft.org/schema/mule/mule-sap-concur-connector" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/mule-sap-concur-connector http://www.mulesoft.org/schema/mule/mule-sap-concur-connector/current/mule-mule-sap-concur-connector.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="b1852dfe-203f-4dbc-a33f-33d00b645a45" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="b24a82df-c997-4aed-ae93-1c554cd8ebbd" >
+		<db:generic-connection url="jdbc:postgresql://ec2-3-228-134-188.compute-1.amazonaws.com:5432/d3nfpmk8882ckh?sslmode=require" driverClassName="org.postgresql.Driver" user="ojuqekkcthqtdf" password="835c8631582a8d95eeaa162428986144352242c0b6f50a2cbbeb62de0cf0df5d&#10;" />
+	</db:config>
+	<flow name="fitbit-to-postgresFlow" doc:id="dd2aeb17-841c-4e3b-84e6-fffb9b4148be" >
+		<http:listener doc:name="Listener" doc:id="27e357b1-7144-45b8-a1aa-8a8955ec4505" config-ref="HTTP_Listener_config" path="/fitbit"/>
+		<http:request method="GET" doc:name="Request" doc:id="91313018-91f0-4109-b98a-56f6e8623593" url="https://api.fitbit.com/1/user/-/activities/heart/date/2021-10-30/2021-10-28.json">
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Authorization" : "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyM0JLV1kiLCJzdWIiOiI1UFczSzYiLCJpc3MiOiJGaXRiaXQiLCJ0eXAiOiJhY2Nlc3NfdG9rZW4iLCJzY29wZXMiOiJ3aHIgd251dCB3cHJvIHdzbGUgd3dlaSB3c29jIHdhY3Qgd3NldCB3bG9jIiwiZXhwIjoxNjM2ODY4NDA4LCJpYXQiOjE2MzQyNzY0MDh9.KAcwlE_XBT4Fwr6ZcypWfMC9U0KMfkdBYUaJfVFf4EY"
+}]]]></http:headers>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="8edd7296-870a-4504-a77b-1c511f68fd4f">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="heartrate"><![CDATA[%dw 2.0
+output application/json
+---
+//{
+//	'entryDate':payload."activities-heart"[0].dateTime as Date,
+//	'restingHeartRate': payload."activities-heart"[0].value.restingHeartRate as String,
+//	'userId': 'Anjan'
+//}
+
+payload."activities-heart"  map ((item, index) -> 
+	{
+	'entryDate': item.dateTime as Date,
+	"restingHeartRate": item.value.restingHeartRate as String default "60",
+	"userId": "Lauren Bailey"
+	}
+	
+	)]]></ee:set-variable>
+				<ee:set-variable variableName="heartrateZone"><![CDATA[%dw 2.0
+output application/json
+//var date = payload."activities-heart"[0].dateTime as Date
+//var val = payload."activities-heart" map ((item, index) -> 
+//    item.value.heartRateZones map ((item2, index2) -> {
+//    'entryDate':item.dateTime as Date,
+//    "caloriesOut": item2.caloriesOut,
+//	"maxHr":item2.max,
+//	"minHr": item2.minutes,
+//	"minutesInZone":item2.minutes,
+//	"zoneName": item2.name})
+// )
+---
+payload."activities-heart" map ((item, index) -> 
+    item.value.heartRateZones map ((item2, index2) -> {
+    'entryDate':item.dateTime as Date,
+    "caloriesOut": item2.caloriesOut,
+	"maxHr":item2.max,
+	"minHr": item2.min,
+	"minutesInZone":item2.minutes,
+	"zoneName": item2.name})
+	
+	)
+
+//---
+//payload."activities-heart"[0].value.heartRateZones map ((item, index) -> 
+//	{
+//	'entryDate': date as Date,
+//	"caloriesOut": item.caloriesOut as String,
+//	"maxHr": item.max as String,
+//	"minHr": item.minutes as String,
+//	"minutesInZone": item.minutes as String,
+//	"zoneName": item.name
+//}
+//	)
+
+
+]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<db:bulk-insert doc:name="Bulk insert" doc:id="ce6bbbce-12b2-481a-ada3-5499ffa74454" config-ref="Database_Config">
+			<db:bulk-input-parameters ><![CDATA[#[vars.heartrate]]]></db:bulk-input-parameters>
+			<db:sql ><![CDATA[INSERT INTO heartrateFb(entryDate, restingHeartRate, userId)
+VALUES (:entryDate, :restingHeartRate, :userId);]]></db:sql>
+		</db:bulk-insert>
+		<db:bulk-insert doc:name="Bulk insert" doc:id="80d6fd51-cb95-4f9e-866b-5f50539e7e97" config-ref="Database_Config">
+			<db:bulk-input-parameters><![CDATA[#[flatten(vars.heartrateZone)]]]></db:bulk-input-parameters>
+			<db:sql><![CDATA[INSERT INTO heartrateZone(entryDate, caloriesOut, minHr, maxHr, minutesInZone,zoneName)
+VALUES (:entryDate, :caloriesOut, :minHr, :maxHr, :minutesInZone,:zoneName);]]></db:sql>
+		</db:bulk-insert>
+		<ee:transform doc:name="Transform Message" doc:id="88fa38a9-bf3a-4601-be4d-ec763aa7abb8" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="fitbit-to-postgresFlow1" doc:id="4a875d98-a5ac-4c90-90e5-865a8932894c" >
+		<http:listener doc:name="Listener" doc:id="5e9820ae-4a32-4251-9bdc-3e6e7571d07a" config-ref="HTTP_Listener_config" path="/db"/>
+		<db:select doc:id="7dbabc16-bc19-4948-90a5-fba044fbb5d1" doc:name="Select" config-ref="Database_Config">
+			<db:sql><![CDATA[Select * From HeartrateZone]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="98571796-ed21-42a9-bd45-3b21d2f86935" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<db:insert doc:name="Insert" doc:id="2d8cd840-3711-4fae-b46a-b7e2951d3a68" config-ref="Database_Config">
+			<db:sql><![CDATA[INSERT INTO heartrateFb(entryDate, restingHeartRate, userId)
+VALUES (:entryDate, :restingHeartRate, :userId);]]></db:sql>
+			<db:input-parameters><![CDATA[#[vars.heartrate]]]></db:input-parameters>
+		</db:insert>
+	</flow>
+</mule>
